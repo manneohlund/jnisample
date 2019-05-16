@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".MainActivity">
+
+    <item
+        android:id="@+id/action_search"
+        android:icon="@android:drawable/ic_menu_search"
+        android:title="Cmd"
+        app:actionViewClass="android.support.v7.widget.SearchView"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_clear"
+        android:icon="@android:drawable/ic_delete"
+        android:title="clear"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_save"
+        android:icon="@android:drawable/ic_menu_save"
+        android:title="Save command"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_init_native"
+        android:title="Init native"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_delete_saved_commands"
+        android:icon="@android:drawable/ic_delete"
+        android:title="Delete saved commands"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_interrupt"
+        android:title="interrupt"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ls_system"
+        android:title="ls -1 /system/bin"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ls_l_system"
+        android:title="ls -l1 /system/bin"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ls_root"
+        android:title="ls '/'"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ls_sdcard"
+        android:title="ls '/sdcard'"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_find_dotjpg"
+        android:title="find .jpg"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_find_jpg"
+        android:title="find jpg"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_find_screen"
+        android:title="find 'screen'"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_exit"
+        android:title="exit"
+        app:showAsAction="never" />
+
+</menu>
