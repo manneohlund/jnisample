@@ -15,6 +15,7 @@
 #include <grp.h>
 #include <sys/param.h>
 #include <libgen.h>
+#include <strings.h>
 #include "find.h"
 #include "../utils/fileutils.c"
 #include "../utils/stat-time.h"
@@ -22,11 +23,6 @@
 int find(char *pPath) {
     currentDepth++;
     DIR *pDirectory;
-
-    if (stat(find_stat.pFullPath, &find_stat.fileStat)) {
-        perror(find_stat.pFullPath);
-        return EXIT_FAILURE;
-    }
 
     if ((pDirectory = opendir(pPath)) == NULL) {
         perror(pPath);
@@ -42,15 +38,16 @@ int find(char *pPath) {
                     || (!IS_FOLDER_POINTER(pDirent->d_name) && !regexec(&regex, pDirent->d_name, 0, NULL, 0))) {
 
                     asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
-                    asprintf(&find_stat.pCurrentDir, "%s", pPath);
                     find_stat.fileType = pDirent->d_type;
                     find_stat.fileName = pDirent->d_name;
+                    statPath(find_stat.pFullPath);
+
                     printFind();
                 }
             }
 
             if (pDirent->d_type == DT_DIR && !IS_FOLDER_POINTER(pDirent->d_name)) {
-                asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
+                //asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
                 find(find_stat.pFullPath);
             }
         }
@@ -60,6 +57,20 @@ int find(char *pPath) {
     currentDepth--;
 
     return EXIT_SUCCESS;
+}
+
+void statPath(char *pPath) {
+    asprintf(&find_stat.pCurrentDir, "%s", pPath);
+
+    if (pDirent->d_type == DT_LNK) {
+        bzero(find_stat.linkPath, sizeof(find_stat.linkPath));
+        readlink(find_stat.pFullPath, find_stat.linkPath, sizeof(find_stat.linkPath)-1);
+    }
+
+    if (lstat(find_stat.pFullPath, &find_stat.fileStat) == -1) {
+        perror(find_stat.pFullPath);
+        return;
+    }
 }
 
 void printFind() {
@@ -156,7 +167,6 @@ void printStatFormat() {
                         break;
                     case 'A':
                         mode_to_letter(find_stat.fileStat.st_mode, find_stat.fileModes);
-                        find_stat.fileModes[0] = parseFileType(find_stat.fileType);
                         printf("%s", find_stat.fileModes);                           // File modes
                         break;
                     case 's':
@@ -179,6 +189,9 @@ void printStatFormat() {
                         break;
                     case 'n':
                         printf("%s", find_stat.fileName);                         // Filename
+                        if (find_stat.fileType == DT_LNK) {
+                            printf(" -> %s", find_stat.linkPath);
+                        }
                         break;
                     case 'N':
                         printf("%s", find_stat.pFullPath);                              // Long filename
@@ -620,7 +633,7 @@ int main(int argc, char *argv[]) {
     if (optind < argc) {
         while (optind < argc) {
             find_stat.pFullPath = argv[optind++];
-            if (stat(find_stat.pFullPath, &find_stat.fileStat)) {
+            if (lstat(find_stat.pFullPath, &find_stat.fileStat) == -1) {
                 perror(find_stat.pFullPath);
                 return EXIT_FAILURE;
             }

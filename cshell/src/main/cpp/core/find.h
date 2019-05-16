@@ -20,6 +20,7 @@ struct find_stat {
     unsigned char fileType;
     char *fileName;
     struct stat fileStat;
+    char linkPath[1024];
 } find_stat;
 
 // Regex
@@ -107,6 +108,8 @@ static struct option long_options[] = {
 };
 
 void printFind();
+
+void statPath(char *pPath);
 
 void printDateFormat(time_t timer);
 
