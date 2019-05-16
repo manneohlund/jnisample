@@ -14,143 +14,25 @@
 #include <pwd.h>
 #include <grp.h>
 #include <sys/param.h>
+#include <libgen.h>
+#include "find.h"
 #include "../utils/fileutils.c"
 #include "../utils/stat-time.h"
-
-struct dirent *pDirent, pFile;
-struct stat filestat;
-char file_modes[12];
-char *result;
-char *pFileName;
-char *pDirName;
-regex_t regex;
-int regex_result;
-
-enum {
-    HELP = CHAR_MAX + 1,
-    DELETE,
-    PRINT0
-};
-
-static struct option long_options[] = {
-        {"icase",       no_argument,       0, 'i'},
-        {"depth",       no_argument,       0, 'd'},
-        {"pattern",     required_argument, 0, 'p'},
-        {"type",        required_argument, 0, 't'}, // -type [bcdflps] (block, char, dir, file, symlink, pipe, socket)
-        {"user",        required_argument, 0, 'u'}, // -user  UNAME    belongs to user UNAME
-        {"group",       required_argument, 0, 'g'}, // -group GROUP    belongs to group GROUP
-        {"user-name",   required_argument, 0, 'U'}, // -user  UNAME    belongs to user UNAME
-        {"group-name",  required_argument, 0, 'G'}, // -group GROUP    belongs to group GROUP
-        {"atime",       required_argument, 0, 'x'}, // -atime N[u]     accessed N units ago
-        {"ctime",       required_argument, 0, 'y'}, // -ctime N[u]     created/write N units ago
-        {"mtime",       required_argument, 0, 'z'}, // -mtime N[u]     modified N units ago
-        {"size",        required_argument, 0, 's'}, // -size  [=><]N[kmg]     512 byte blocks (c=bytes)
-        {"mindepth",    required_argument, 0, 'm'}, // -mindepth       # at least # dirs down
-        {"maxdepth",    required_argument, 0, 'M'}, // -maxdepth       # at most # dirs down
-        {"stat-format", required_argument, 0, 'f'},
-        {"date-format", required_argument, 0, 'F'},
-        {"options",     no_argument,       0, 'o'},
-        {"help",        no_argument,       0, HELP},
-        {"delete",      no_argument,       0, DELETE},
-        {"print0",      no_argument,       0, PRINT0},
-        {NULL, 0, NULL,                       0}
-};
-
-// Option checker
-struct option_check {
-    bool case_insensitive;
-    bool depth;
-    bool pattern;
-    bool type;
-    bool user;
-    bool group;
-    bool size;
-    bool mindepth;
-    bool maxdepth;
-    bool stat_format;
-    bool date_format;
-    bool delete;
-    bool print0;
-    bool options;
-} is_option_set;
-
-// Option value holder
-struct option_values {
-    int depth;
-    char *pattern;
-    int type;
-    int user;
-    int group;
-    int mindepth;
-    int maxdepth;
-    char *stat_format;
-    char *date_format;
-    char cwd[PATH_MAX]; // Current working dir
-} option_values;
-
-enum size_type {
-    EQ, GT, LT, CT
-};
-
-enum size_multiplier {
-    B, KB, MB, GB
-};
-
-struct size_struct {
-    enum size_type size_type;
-    long size;
-    enum size_multiplier size_multiplier;
-} size_values;
-
-int currentDepth = 0;
-
-bool isWithinCurrentDepth();
-
-int parseNumericArg(char *value);
-
-int parseFileTypeArg(const char *pValue);
-
-enum size_type parseSizePrefixArg(char *pValue);
-
-enum size_multiplier parseSizeSuffixArg(char *pValue);
-
-bool isSizeMatch(long *pSize);
-
-void multiplySize(long *pSize, enum size_multiplier multiplier);
-
-void divideSize(long *pSize, enum size_multiplier multiplier);
-
-gid_t getGroupIdByName(const char *pName);
-
-uid_t getUserIdByName(const char *pName);
-
-char *getGroupNameById(uid_t uid);
-
-char *getUserNameById(uid_t uid);
-
-static void printStat(char *pPath);
-
-void printDateFormat(time_t timer);
-
-void printParams();
-
-void usage(int status);
-
-void validateStatFormat();
-
-void validateDateFormat();
-
-void printStatFormat(char *pPath);
 
 int find(char *pPath) {
     currentDepth++;
     DIR *pDirectory;
 
+    if (stat(find_stat.pFullPath, &find_stat.fileStat)) {
+        perror(find_stat.pFullPath);
+        return EXIT_FAILURE;
+    }
+
     if ((pDirectory = opendir(pPath)) == NULL) {
         perror(pPath);
         return EXIT_FAILURE;
     } else if (currentDepth == 1) {
-        printStat(pPath);
+        printFind();
     }
 
     while ((pDirent = readdir(pDirectory)) != NULL) {
@@ -159,70 +41,447 @@ int find(char *pPath) {
                 if ((!IS_FOLDER_POINTER(pDirent->d_name) && option_values.pattern == NULL)
                     || (!IS_FOLDER_POINTER(pDirent->d_name) && !regexec(&regex, pDirent->d_name, 0, NULL, 0))) {
 
-                    asprintf(&result, "%s/%s", pPath, pDirent->d_name);
-                    asprintf(&pFileName, "%s", pDirent->d_name);
-                    asprintf(&pDirName, "%s", pPath);
-                    pFile = *pDirent;
-                    printStat(result);
+                    asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
+                    asprintf(&find_stat.pCurrentDir, "%s", pPath);
+                    find_stat.fileType = pDirent->d_type;
+                    find_stat.fileName = pDirent->d_name;
+                    printFind();
                 }
             }
 
             if (pDirent->d_type == DT_DIR && !IS_FOLDER_POINTER(pDirent->d_name)) {
-                asprintf(&result, "%s/%s", pPath, pDirent->d_name);
-                find(result);
+                asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
+                find(find_stat.pFullPath);
             }
         }
     }
 
-    currentDepth--;
     closedir(pDirectory);
+    currentDepth--;
 
     return EXIT_SUCCESS;
 }
 
-static void printStat(char *pPath) {
-    if (stat(pPath, &filestat)) {
-        perror(pPath);
-        return;
-    }
-
+void printFind() {
     // Size
-    long size = filestat.st_size;
+    long size = find_stat.fileStat.st_size;
     if (is_option_set.size && !isSizeMatch(&size))
         return;
 
     // User
-    if (is_option_set.user && filestat.st_uid != option_values.user)
+    if (is_option_set.user && find_stat.fileStat.st_uid != option_values.user)
         return;
 
     // Group
-    if (is_option_set.group && filestat.st_gid != option_values.group)
+    if (is_option_set.group && find_stat.fileStat.st_gid != option_values.group)
         return;
 
     if (is_option_set.stat_format) {
-        printStatFormat(pPath);
+        printStatFormat();
     } else {
-        printf("%s%c", pPath, is_option_set.print0 ? '\0' : '\n');
+        printf("%s%c", find_stat.pFullPath, is_option_set.print0 ? '\0' : '\n');
     }
 }
 
 bool isSizeMatch(long *pSize) {
-    /*printf("\nPSIZE = %ld\n", *pSize);
-    printf("SIZE  = %ld\n", size_values.size);
-    printf("SIZE min  = %ld\n", (long) (size_values.size * 0.95));
-    printf("SIZE max  = %ld\n", (long) (size_values.size * 1.05));*/
-    if (size_values.size_type == EQ) {
-        divideSize(pSize, size_values.size_multiplier);
-        multiplySize(pSize, size_values.size_multiplier);
-        return *pSize == size_values.size;
-    } else if (size_values.size_type == GT) {
-        return *pSize >= size_values.size;
-    } else if (size_values.size_type == LT) {
-        return *pSize <= size_values.size;
-    } else { // CT
-        return *pSize <= (long) (size_values.size * 1.15) && *pSize >= (long) (size_values.size * 0.95);
+    switch (size_values.size_type) {
+        case EQ:
+            divideSize(pSize, size_values.size_multiplier);
+            multiplySize(pSize, size_values.size_multiplier);
+            return *pSize == size_values.size;
+        case GT:
+            return *pSize >= size_values.size;
+        case LT:
+            return *pSize <= size_values.size;
+        case CT:
+        default:
+            return *pSize <= (long) (size_values.size * 1.15) && *pSize >= (long) (size_values.size * 0.95);
     }
 }
+
+/****************************************************
+ *  Stat format
+ *****************************************************/
+
+void validateStatFormat() {
+    char const *b;
+    for (b = option_values.stat_format; *b; b++) {
+        switch (*b) {
+            case '%':
+                b++;
+                switch (*b) {
+                    case 'a':
+                    case 'A':
+                    case 's':
+                    case 'f':
+                    case 'F':
+                    case 'g':
+                    case 'G':
+                    case 'i':
+                    case 'n':
+                    case 'N':
+                    case 'o':
+                    case 'p':
+                    case 'u':
+                    case 'U':
+                    case 'x':
+                    case 'X':
+                    case 'y':
+                    case 'Y':
+                    case 'z':
+                    case 'Z':
+                        break;
+                    default:
+                        errno = EINVAL;
+                        fprintf(stderr, "Format char '%c': ", *b);
+                        perror("");
+                        exit(EXIT_FAILURE);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void printStatFormat() {
+    char const *b;
+    for (b = option_values.stat_format; *b; b++) {
+        switch (*b) {
+            case '%':
+                b++;
+                switch (*b) {
+                    case 'a':
+                        printf("%o", find_stat.fileStat.st_mode);                     // Access bits (octal)
+                        break;
+                    case 'A':
+                        mode_to_letter(find_stat.fileStat.st_mode, find_stat.fileModes);
+                        find_stat.fileModes[0] = parseFileType(find_stat.fileType);
+                        printf("%s", find_stat.fileModes);                           // File modes
+                        break;
+                    case 's':
+                        printf("%lli", find_stat.fileStat.st_size);                   // Size
+                        break;
+                    case 'f':
+                        printf("%x", find_stat.fileStat.st_mode);                     // All mode bits (hex)
+                        break;
+                    case 'F':
+                        printf("%d", find_stat.fileType);                             // File type
+                        break;
+                    case 'g':
+                        printf("%u", find_stat.fileStat.st_gid);                      // Group id
+                        break;
+                    case 'G':
+                        printf("%s", getGroupNameById(find_stat.fileStat.st_gid));    // Group name
+                        break;
+                    case 'i':
+                        printf("%llu", find_stat.fileStat.st_ino);                    // Inode
+                        break;
+                    case 'n':
+                        printf("%s", find_stat.fileName);                         // Filename
+                        break;
+                    case 'N':
+                        printf("%s", find_stat.pFullPath);                              // Long filename
+                        break;
+                    case 'o':
+                        printf("%lli", find_stat.fileStat.st_blocks);       // I/O block size
+                        break;
+                    case 'p':
+                        printf("%s", find_stat.pCurrentDir);                          // File path
+                        break;
+                    case 'u':
+                        printf("%u", find_stat.fileStat.st_uid);                      // User id
+                        break;
+                    case 'U':
+                        printf("%s", getUserNameById(find_stat.fileStat.st_uid));     // User name
+                        break;
+                    case 'x':
+                        printDateFormat(get_stat_atime(&find_stat.fileStat).tv_sec);  // Access time
+                        break;
+                    case 'X':
+                        printf("%li", get_stat_atime(&find_stat.fileStat).tv_sec);    // Access time unix
+                        break;
+                    case 'y':
+                        printDateFormat(get_stat_mtime(&find_stat.fileStat).tv_sec);  // File mod/write time
+                        break;
+                    case 'Y':
+                        printf("%li", get_stat_mtime(&find_stat.fileStat).tv_sec);    // File mod/write time unix
+                        break;
+                    case 'z':
+                        printDateFormat(get_stat_ctime(&find_stat.fileStat).tv_sec);  // File change time
+                        break;
+                    case 'Z':
+                        printf("%li", get_stat_ctime(&find_stat.fileStat).tv_sec);    // File change time unix
+                        break;
+                    default:
+                        errno = EINVAL;
+                        fprintf(stderr, "Format char '%c': ", *b);
+                        perror("");
+                        exit(EXIT_FAILURE);
+                }
+                break;
+            default:
+                putchar(*b);
+                break;
+        }
+    }
+    putchar('\n');
+}
+
+/****************************************************
+ *  Date format
+ *****************************************************/
+
+void validateDateFormat() {
+    char const *b;
+    for (b = option_values.date_format; *b; b++) {
+        switch (*b) {
+            case '%':
+                b++;
+                switch (*b) {
+                    case 'a':
+                    case 'A':
+                    case 'b':
+                    case 'B':
+                    case 'c':
+                    case 'C':
+                    case 'd':
+                    case 'D':
+                    case 'e':
+                    case 'E':
+                    case 'F':
+                    case 'g':
+                    case 'G':
+                    case 'h':
+                    case 'H':
+                    case 'I':
+                    case 'j':
+                    case 'k':
+                    case 'l':
+                    case 'm':
+                    case 'M':
+                    case 'n':
+                    case 'O':
+                    case 'p':
+                    case 'P':
+                    case 'r':
+                    case 'R':
+                    case 's':
+                    case 'S':
+                    case 't':
+                    case 'T':
+                    case 'u':
+                    case 'U':
+                    case 'V':
+                    case 'w':
+                    case 'W':
+                    case 'x':
+                    case 'X':
+                    case 'y':
+                    case 'Y':
+                    case 'z':
+                    case 'Z':
+                    case '+':
+                    case '%':
+                        break;
+                    default:
+                        errno = EINVAL;
+                        fprintf(stderr, "Date format char '%c': ", *b);
+                        perror("");
+                        exit(EXIT_FAILURE);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void printDateFormat(time_t timer) {
+    tm_info = localtime(&timer);
+    strftime(buffer, 100, option_values.date_format, tm_info);
+    printf("%s", buffer);
+}
+
+/****************************************************
+ *  Parse
+ *****************************************************/
+
+int parseNumericArg(char *pValue) {
+    char *ptr;
+
+    /* Convert the provided value to a decimal long */
+    long result = strtol(pValue, &ptr, 10);
+
+    /* If the result is 0, test for an error */
+    if (result == 0) {
+        /* If a conversion error occurred, display a message and exit */
+        if (errno == EINVAL) {
+            perror(pValue);
+            exit(EXIT_FAILURE);
+        }
+
+        /* If the value provided was out of range, display a warning message */
+        if (errno == ERANGE)
+            printf("The value provided was out of range\n");
+    }
+
+    return (int) result;
+}
+
+/****************************************************
+ *  User / Group
+ *****************************************************/
+
+gid_t getGroupIdByName(const char *pName) {
+    struct group *grp = getgrnam(pName); /* don't free, see getgrnam() for details */
+    if (grp == NULL) {
+        errno = EINVAL;
+        perror(pName);
+        exit(EXIT_FAILURE);
+    }
+    return grp->gr_gid;
+}
+
+uid_t getUserIdByName(const char *pName) {
+    struct passwd *pwd = getpwnam(pName); /* don't free, see getpwnam() for details */
+    if (pwd == NULL) {
+        errno = EINVAL;
+        perror(pName);
+        exit(EXIT_FAILURE);
+    }
+    return pwd->pw_uid;
+}
+
+char *getGroupNameById(const uid_t uid) {
+    struct group *grp = getgrgid(uid); /* don't free, see getgrnam() for details */
+    if (grp == NULL) {
+        perror(uid);
+        exit(EXIT_FAILURE);
+    }
+    return grp->gr_name;
+}
+
+char *getUserNameById(const uid_t uid) {
+    struct passwd *pwd = getpwuid(uid); /* don't free, see getpwnam() for details */
+    if (pwd == NULL) {
+        perror(uid);
+        exit(EXIT_FAILURE);
+    }
+    return pwd->pw_name;
+}
+
+/****************************************************
+ *  TYPE
+ *****************************************************/
+
+int parseFileTypeArg(const char *pValue) {
+    switch (pValue[0]) {
+        case 'f':
+            return DT_REG; // S_IFREG; // regular file
+        case 'd':
+            return DT_DIR; // S_IFDIR; // directory
+        case 'l':
+            return DT_LNK; // S_IFLNK; // symlink
+        case 'p':
+            return DT_FIFO; // S_IFIFO; // FIFO/pipe
+        case 'b':
+            return DT_BLK; // S_IFBLK; // block device
+        case 'c':
+            return DT_CHR; // S_IFCHR; // character device
+        case 's':
+            return DT_SOCK; // S_IFSOCK; // socket
+        default:
+            errno = EINVAL;
+            perror(&pValue[0]);
+            exit(EXIT_FAILURE);
+    }
+}
+
+char parseFileType(int pValue) {
+    switch (pValue) {
+        case DT_DIR:
+            return 'd'; // S_IFDIR; // directory
+        case DT_LNK:
+            return 'l'; // S_IFLNK; // symlink
+        case DT_FIFO:
+            return 'p'; // S_IFIFO; // FIFO/pipe
+        case DT_BLK:
+            return 'b'; // S_IFBLK; // block device
+        case DT_CHR:
+            return 'c'; // S_IFCHR; // character device
+        case DT_SOCK:
+            return 's'; // S_IFSOCK; // socket
+        case DT_REG:
+        default:
+            return '-'; // S_IFREG; // regular file
+    }
+}
+
+/****************************************************
+ *  SIZE
+ *****************************************************/
+
+enum size_type parseSizePrefixArg(char *pValue) {
+    if (pValue[0] == '=') {
+        pValue[0] = '0';
+        return EQ;
+    } else if (pValue[0] == '>') {
+        pValue[0] = '0';
+        return GT;
+    } else if (pValue[0] == '<') {
+        pValue[0] = '0';
+        return LT;
+    }
+    return CT;
+}
+
+enum size_multiplier parseSizeSuffixArg(char *pValue) {
+    int last = tolower(pValue[strlen(pValue) - 1]);
+    if (last == 'g') {
+        return GB;
+    } else if (last == 'm') {
+        return MB;
+    } else if (last == 'k') {
+        return KB;
+    }
+    return B;
+}
+
+void multiplySize(long *pSize, enum size_multiplier multiplier) {
+    if (multiplier == GB) {
+        *pSize = *pSize * 1024 * 1024 * 1024;
+    } else if (multiplier == MB) {
+        *pSize = *pSize * 1024 * 1024;
+    } else if (multiplier == KB) {
+        *pSize = *pSize * 1024;
+    }
+}
+
+void divideSize(long *pSize, enum size_multiplier multiplier) {
+    if (multiplier == GB) {
+        *pSize = *pSize / 1024 / 1024 / 1024;
+    } else if (multiplier == MB) {
+        *pSize = *pSize / 1024 / 1024;
+    } else if (multiplier == KB) {
+        *pSize = *pSize / 1024;
+    }
+}
+
+/****************************************************
+ *  DEPTH
+ *****************************************************/
+
+bool isWithinCurrentDepth() {
+    return (!is_option_set.mindepth && !is_option_set.maxdepth) ||
+           (option_values.mindepth <= currentDepth && option_values.maxdepth >= currentDepth) ||
+           (option_values.mindepth <= currentDepth && !is_option_set.maxdepth) ||
+           (option_values.maxdepth >= currentDepth && !is_option_set.mindepth);
+}
+
+/****************************************************
+ *  MAIN
+ *****************************************************/
 
 int main(int argc, char *argv[]) {
     int c;
@@ -323,6 +582,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Check regex pattern
     if (option_values.pattern != NULL) {
         regex_result = regcomp(&regex, option_values.pattern,
                                REG_EXTENDED | (is_option_set.case_insensitive ? REG_ICASE : 0));
@@ -338,6 +598,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Check date format
+    if (!is_option_set.date_format) {
+        option_values.date_format = "%Y-%m-%d %X";
+    }
+
     if (is_option_set.options) {
         printParams();
         exit(EXIT_SUCCESS);
@@ -345,17 +610,28 @@ int main(int argc, char *argv[]) {
 
     // Check min and maxdepth
     if (!is_option_set.mindepth && !is_option_set.maxdepth && option_values.maxdepth < option_values.mindepth) {
-        fprintf(stderr, "mindeoth %d is larger than maxdepth %d", option_values.mindepth, option_values.maxdepth);
+        fprintf(stderr, "mindepth %d is larger than maxdepth %d", option_values.mindepth, option_values.maxdepth);
         exit(EXIT_FAILURE);
     }
 
-    int result = EXIT_SUCCESS;
+    int result;
 
     // Execute find on path... or current working dir
     if (optind < argc) {
-        while (optind < argc)
-            //printf("Path = %s\n", argv[optind++]);
-            result = find(removeTrailingSlash(argv[optind++]));
+        while (optind < argc) {
+            find_stat.pFullPath = argv[optind++];
+            if (stat(find_stat.pFullPath, &find_stat.fileStat)) {
+                perror(find_stat.pFullPath);
+                return EXIT_FAILURE;
+            }
+            find_stat.fileName = basename(find_stat.pFullPath);
+            find_stat.pCurrentDir = dirname(find_stat.pFullPath);
+            if (is_option_set.depth || !S_ISDIR(find_stat.fileStat.st_mode)) {
+                printFind();
+            } else {
+                result = find(removeTrailingSlash(find_stat.pFullPath));
+            }
+        }
     } else if (getcwd(option_values.cwd, sizeof(option_values.cwd)) != NULL) {
         //printf("Current working dir: %s\n", option_values.cwd);
         result = find(removeTrailingSlash(option_values.cwd));
@@ -366,368 +642,6 @@ int main(int argc, char *argv[]) {
 
     regfree(&regex);
     exit(result);
-}
-
-void validateStatFormat() {
-    char const *b;
-    for (b = option_values.stat_format; *b; b++) {
-        switch (*b) {
-            case '%':
-                b++;
-                switch (*b) {
-                    case 'a':
-                    case 'A':
-                    case 's':
-                    case 'f':
-                    case 'F':
-                    case 'g':
-                    case 'G':
-                    case 'i':
-                    case 'n':
-                    case 'N':
-                    case 'o':
-                    case 'p':
-                    case 'u':
-                    case 'U':
-                    case 'x':
-                    case 'X':
-                    case 'y':
-                    case 'Y':
-                    case 'z':
-                    case 'Z':
-                        break;
-                    default:
-                        errno = EINVAL;
-                        fprintf(stderr, "Format char '%c': ", *b);
-                        perror("");
-                        exit(EXIT_FAILURE);
-                }
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-void printStatFormat(char *pPath) {
-    char const *b;
-    for (b = option_values.stat_format; *b; b++) {
-        switch (*b) {
-            case '%':
-                b++;
-                switch (*b) {
-                    case 'a':
-                        printf("%o", filestat.st_mode);                     // Access bits (octal)
-                        break;
-                    case 'A':
-                        mode_to_letter(filestat.st_mode, file_modes);
-                        printf("%s", file_modes);                           // File modes
-                        break;
-                    case 's':
-                        printf("%lli", filestat.st_size);                   // Size
-                        break;
-                    case 'f':
-                        printf("%x", filestat.st_mode);                     // All mode bits (hex)
-                        break;
-                    case 'F':
-                        printf("%d", pFile.d_type);                         // File type
-                        break;
-                    case 'g':
-                        printf("%u", filestat.st_gid);                      // Group id
-                        break;
-                    case 'G':
-                        printf("%s", getGroupNameById(filestat.st_gid));    // Group name
-                        break;
-                    case 'i':
-                        printf("%llu", filestat.st_ino);                    // Inode
-                        break;
-                    case 'n':
-                        printf("%s", pFile.d_name);                         // Filename
-                        break;
-                    case 'N':
-                        printf("%s", pPath);                                // Long filename
-                        break;
-                    case 'o':
-                        printf("%lli", filestat.st_blocks);                 // I/O block size
-                        break;
-                    case 'p':
-                        printf("%s", pDirName);                             // File path
-                        break;
-                    case 'u':
-                        printf("%u", filestat.st_uid);                      // User id
-                        break;
-                    case 'U':
-                        printf("%s", getUserNameById(filestat.st_uid));     // User name
-                        break;
-                    case 'x':
-                        printDateFormat(get_stat_atime(&filestat).tv_sec);  // Access time
-                        break;
-                    case 'X':
-                        printf("%li", get_stat_atime(&filestat).tv_sec);    // Access time unix
-                        break;
-                    case 'y':
-                        printDateFormat(get_stat_mtime(&filestat).tv_sec);  // File mod/write time
-                        break;
-                    case 'Y':
-                        printf("%li", get_stat_mtime(&filestat).tv_sec);    // File mod/write time unix
-                        break;
-                    case 'z':
-                        printDateFormat(get_stat_ctime(&filestat).tv_sec);  // File change time
-                        break;
-                    case 'Z':
-                        printf("%li", get_stat_ctime(&filestat).tv_sec);    // File change time unix
-                        break;
-                    default:
-                        errno = EINVAL;
-                        fprintf(stderr, "Format char '%c': ", *b);
-                        perror("");
-                        exit(EXIT_FAILURE);
-                }
-                break;
-            default:
-                putchar(*b);
-                break;
-        }
-    }
-    putchar('\n');
-}
-
-char buffer[100];
-struct tm *tm_info;
-
-void printDateFormat(time_t timer) {
-    tm_info = localtime(&timer);
-    strftime(buffer, 100, option_values.date_format, tm_info);
-    printf("%s", buffer);
-}
-
-void validateDateFormat() {
-    char const *b;
-    for (b = option_values.date_format; *b; b++) {
-        switch (*b) {
-            case '%':
-                b++;
-                switch (*b) {
-                    case 'a':
-                    case 'A':
-                    case 'b':
-                    case 'B':
-                    case 'c':
-                    case 'C':
-                    case 'd':
-                    case 'D':
-                    case 'e':
-                    case 'E':
-                    case 'F':
-                    case 'g':
-                    case 'G':
-                    case 'h':
-                    case 'H':
-                    case 'I':
-                    case 'j':
-                    case 'k':
-                    case 'l':
-                    case 'm':
-                    case 'M':
-                    case 'n':
-                    case 'O':
-                    case 'p':
-                    case 'P':
-                    case 'r':
-                    case 'R':
-                    case 's':
-                    case 'S':
-                    case 't':
-                    case 'T':
-                    case 'u':
-                    case 'U':
-                    case 'V':
-                    case 'w':
-                    case 'W':
-                    case 'x':
-                    case 'X':
-                    case 'y':
-                    case 'Y':
-                    case 'z':
-                    case 'Z':
-                    case '+':
-                    case '%':
-                        break;
-                    default:
-                        errno = EINVAL;
-                        fprintf(stderr, "Date format char '%c': ", *b);
-                        perror("");
-                        exit(EXIT_FAILURE);
-                }
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-int parseNumericArg(char *value) {
-    char *ptr;
-
-    /* Convert the provided value to a decimal long */
-    long result = strtol(value, &ptr, 10);
-
-    /* If the result is 0, test for an error */
-    if (result == 0) {
-        /* If a conversion error occurred, display a message and exit */
-        if (errno == EINVAL) {
-            perror(value);
-            exit(EXIT_FAILURE);
-        }
-
-        /* If the value provided was out of range, display a warning message */
-        if (errno == ERANGE)
-            printf("The value provided was out of range\n");
-    }
-
-    return (int) result;
-}
-
-/****************************************************
- *  User / Group
- *****************************************************/
-
-gid_t getGroupIdByName(const char *pName) {
-    struct group *grp = getgrnam(pName); /* don't free, see getgrnam() for details */
-    if (grp == NULL) {
-        errno = EINVAL;
-        perror(pName);
-        exit(EXIT_FAILURE);
-    }
-    return grp->gr_gid;
-}
-
-uid_t getUserIdByName(const char *pName) {
-    struct passwd *pwd = getpwnam(pName); /* don't free, see getpwnam() for details */
-    if (pwd == NULL) {
-        errno = EINVAL;
-        perror(pName);
-        exit(EXIT_FAILURE);
-    }
-    return pwd->pw_uid;
-}
-
-char *getGroupNameById(const uid_t uid) {
-    struct group *grp = getgrgid(uid); /* don't free, see getgrnam() for details */
-    if (grp == NULL) {
-        perror(uid);
-        exit(EXIT_FAILURE);
-    }
-    return grp->gr_name;
-}
-
-char *getUserNameById(const uid_t uid) {
-    struct passwd *pwd = getpwuid(uid); /* don't free, see getpwnam() for details */
-    if (pwd == NULL) {
-        perror(uid);
-        exit(EXIT_FAILURE);
-    }
-    return pwd->pw_name;
-}
-
-/****************************************************
- *  DEPTH
- *****************************************************/
-
-bool isWithinCurrentDepth() {
-    return (!is_option_set.mindepth && !is_option_set.maxdepth) ||
-           (option_values.mindepth <= currentDepth && option_values.maxdepth >= currentDepth) ||
-           (option_values.mindepth <= currentDepth && !is_option_set.maxdepth) ||
-           (option_values.maxdepth >= currentDepth && !is_option_set.mindepth);
-}
-
-/**
- * block, char, dir, file, symlink, pipe, socket
- *
- * switch (sb.st_mode & S_IFMT) {
-           case S_IFBLK:  printf("block device\n");            break;
-           case S_IFCHR:  printf("character device\n");        break;
-           case S_IFDIR:  printf("directory\n");               break;
-           case S_IFIFO:  printf("FIFO/pipe\n");               break;
-           case S_IFLNK:  printf("symlink\n");                 break;
-           case S_IFREG:  printf("regular file\n");            break;
-           case S_IFSOCK: printf("socket\n");                  break;
-           default:       printf("unknown?\n");                break;
-           }
- * @param pValue
- * @return
- */
-int parseFileTypeArg(const char *pValue) {
-    switch (pValue[0]) {
-        case 'f':
-            return DT_REG; // S_IFREG; // regular file
-        case 'd':
-            return DT_DIR; // S_IFDIR; // directory
-        case 'l':
-            return DT_LNK; // S_IFLNK; // symlink
-        case 'p':
-            return DT_FIFO; // S_IFIFO; // FIFO/pipe
-        case 'b':
-            return DT_BLK; // S_IFBLK; // block device
-        case 'c':
-            return DT_CHR; // S_IFCHR; // character device
-        case 's':
-            return DT_SOCK; // S_IFSOCK; // socket
-        default:
-            errno = EINVAL;
-            perror(&pValue[0]);
-            exit(EXIT_FAILURE);
-    }
-}
-
-/****************************************************
- *  SIZE
- *****************************************************/
-
-enum size_type parseSizePrefixArg(char *pValue) {
-    if (optarg[0] == '=') {
-        optarg[0] = '0';
-        return EQ;
-    } else if (optarg[0] == '>') {
-        optarg[0] = '0';
-        return GT;
-    } else if (optarg[0] == '<') {
-        optarg[0] = '0';
-        return LT;
-    }
-    return CT;
-}
-
-enum size_multiplier parseSizeSuffixArg(char *pValue) {
-    int last = tolower(pValue[strlen(pValue) - 1]);
-    if (last == 'g') {
-        return GB;
-    } else if (last == 'm') {
-        return MB;
-    } else if (last == 'k') {
-        return KB;
-    }
-    return B;
-}
-
-void multiplySize(long *pSize, enum size_multiplier multiplier) {
-    if (multiplier == GB) {
-        *pSize = *pSize * 1024 * 1024 * 1024;
-    } else if (multiplier == MB) {
-        *pSize = *pSize * 1024 * 1024;
-    } else if (multiplier == KB) {
-        *pSize = *pSize * 1024;
-    }
-}
-
-void divideSize(long *pSize, enum size_multiplier multiplier) {
-    if (multiplier == GB) {
-        *pSize = *pSize / 1024 / 1024 / 1024;
-    } else if (multiplier == MB) {
-        *pSize = *pSize / 1024 / 1024;
-    } else if (multiplier == KB) {
-        *pSize = *pSize / 1024;
-    }
 }
 
 void printParams() {
@@ -812,6 +726,8 @@ The valid format escape sequences for files:\n\
 ", stdout);
         fputs("\
 Date format:\n\
+Default format is '%Y-%m-%d %X' (2019-05-02 14:35:00) \n\
+\n\
 %a\tAbbreviated weekday name             Sun\n\
 %A\tFull weekday name                    Sunday\n\
 %b\tAbbreviated month name               Mar\n\
