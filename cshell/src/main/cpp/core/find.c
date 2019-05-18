@@ -706,21 +706,22 @@ Default: search \".\" match all -print all matches.\n\
 ", stdout);
         fputs("\
 Filters:\n\
--i --icase       Case insensitive pattern\n\
--d --depth       Ignore content of dir\n\
--p --pattern     [PATTERN]  filename with wildcards\n\
--t --type        [bcdflps] (block, char, dir, file, symlink, pipe, socket)\n\
--u --user        [uid]    belongs to user UID \n\
--g --group       [uid]    belongs to user GID \n\
--U --user-name   [user-name]   belongs to user UNAME \n\
--G --group-name  [group-name]    belongs to user UNAME \n\
--s --size        [=><]N[kmg]    [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
--m --mindepth    # at least # dirs down\n\
--M --maxdepth    # at most # dirs down\n\
--x --atime N     Accessed N days ago\n\
--y --ctime N     Created N days ago\n\
--z --mtime N     Modified N days ago\n\
--f --format      Output specified FORMAT string instead of default file path\n\
+-i --icase                   Case insensitive pattern\n\
+-d --depth                   Ignore content of dir\n\
+-p --pattern [PATTERN]       Regex patterns with wildcards\n\
+-t --type [bcdflps]          (block, char, dir, file, symlink, pipe, socket)\n\
+-u --user [uid]              Belongs to user UID \n\
+-g --group [uid]             Belongs to user GID \n\
+-U --user-name [user-name]   Belongs to user UNAME \n\
+-G --group-name [group-name] Belongs to user UNAME \n\
+-s --size [=><]N[kmg]        [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
+-m --mindepth N              At least N dirs down\n\
+-M --maxdepth N              At most N dirs down\n\
+-x --atime N                 Accessed N days ago\n\
+-y --ctime N                 Created N days ago\n\
+-z --mtime N                 Modified N days ago\n\
+-f --stat-format [FORMAT]    Output specified FORMAT string instead of default file stat\n\
+-F --date-format [FORMAT]    Output specified FORMAT string instead of default file date\n\
 \n\
 ", stdout);
         fputs("\
@@ -732,7 +733,7 @@ Actions:\n\
 ", stdout);
         fputs("\
 Display status of files or filesystems:\n\
--f --format      Output specified FORMAT string instead of default file path\n\
+-f --format [FORMAT]      Output specified FORMAT string instead of default file stat\n\
 \n\
 The valid format escape sequences for files:\n\
 %a  Access bits (octal) |%A  Access bits (flags)|%b  Size/512\n\
@@ -748,6 +749,7 @@ The valid format escape sequences for files:\n\
 ", stdout);
         fputs("\
 Date format:\n\
+-F --date-format [FORMAT]     Output specified FORMAT string instead of default file date\n\
 Default format is '%Y-%m-%d %X' (2019-05-02 14:35:00) \n\
 \n\
 %a\tAbbreviated weekday name             Sun\n\

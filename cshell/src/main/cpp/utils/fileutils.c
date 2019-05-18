@@ -32,6 +32,36 @@ void mode_to_letter(int mode, char *pOut) {
     pOut[10] = '\0';
 }
 
+char parseFileTypeShort(int mode) {
+    return (char) (mode == DT_DIR ? 'd'      // S_IFDIR; // directory
+        : mode == DT_LNK ? 'l'          // S_IFLNK; // symlink
+        : mode == DT_FIFO ? 'f'   // S_IFIFO; // FIFO/pipe
+        : mode == DT_BLK ? 'b'    // S_IFBLK; // block device
+        : mode == DT_CHR ? 'c'    // S_IFCHR; // character device
+        : mode == DT_SOCK ? 's'   // S_IFSOCK; // socket
+        : '-');                  // S_IFREG; // regular file
+}
+
+short getFileType(int pValue) {
+    switch (pValue) {
+        case S_IFDIR:
+            return DT_DIR; // directory
+        case S_IFLNK:
+            return DT_LNK; // symlink
+        case S_IFIFO:
+            return DT_FIFO; // FIFO/pipe
+        case S_IFBLK:
+            return DT_BLK; // block device
+        case S_IFCHR:
+            return DT_CHR; // character device
+        case S_IFSOCK:
+            return DT_SOCK; // socket
+        case S_IFREG:
+        default:
+            return DT_REG; // regular file
+    }
+}
+
 char *removeTrailingSlash(char *source) {
     size_t len = strlen(source);
     if ((len > 0) && (source[len - 1] == '/'))
