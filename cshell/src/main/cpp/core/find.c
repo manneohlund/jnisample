@@ -25,11 +25,11 @@ int find(char *pPath) {
     DIR *pDirectory;
 
     if ((pDirectory = opendir(pPath)) == NULL) {
-        perror("test");
+        perror(pPath);
         return EXIT_FAILURE;
     } else if (currentDepth == 1 && isWithinCurrentDepth()) {
         statPath(pPath);
-        if (validateFind() == true) {
+        if (validateFind()) {
             printFind();
         }
     }
