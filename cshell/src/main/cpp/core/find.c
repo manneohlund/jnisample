@@ -35,6 +35,10 @@ int find(char *pPath) {
     }
 
     while ((pDirent = readdir(pDirectory)) != NULL) {
+        if (IS_FOLDER_POINTER(pDirent->d_name)) {
+            continue;
+        }
+
         if (!is_option_set.depth && isWithinCurrentDepth()) {
 
             asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
@@ -177,7 +181,7 @@ void printStatFormat() {
                         break;
                     case 'A':
                         mode_to_letter(find_stat.fileStat.st_mode, find_stat.fileModes);
-                        printf("%s", find_stat.fileModes);                           // File modes
+                        printf("%s", find_stat.fileModes);                            // File modes
                         break;
                     case 's':
                         printf("%lli", find_stat.fileStat.st_size);                   // Size
@@ -198,16 +202,16 @@ void printStatFormat() {
                         printf("%llu", find_stat.fileStat.st_ino);                    // Inode
                         break;
                     case 'n':
-                        printf("%s", find_stat.fileName);                         // Filename
+                        printf("%s", find_stat.fileName);                             // Filename
                         if (S_ISLNK(find_stat.fileStat.st_mode)) {
                             printf(" -> %s", find_stat.linkPath);
                         }
                         break;
                     case 'N':
-                        printf("%s", find_stat.pFullPath);                              // Long filename
+                        printf("%s", find_stat.pFullPath);                            // Long filename
                         break;
                     case 'o':
-                        printf("%lli", find_stat.fileStat.st_blocks);       // I/O block size
+                        printf("%lli", find_stat.fileStat.st_blocks);                 // I/O block size
                         break;
                     case 'p':
                         printf("%s", find_stat.pCurrentDir);                          // File path
