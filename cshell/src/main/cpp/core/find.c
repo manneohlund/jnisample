@@ -449,29 +449,35 @@ int parseFileTypeArg2(const char *pValue) {
  *****************************************************/
 
 enum size_type parseSizePrefixArg(char *pValue) {
-    if (pValue[0] == '=') {
-        pValue[0] = '0';
-        return EQ;
-    } else if (pValue[0] == '>') {
-        pValue[0] = '0';
-        return GT;
-    } else if (pValue[0] == '<') {
-        pValue[0] = '0';
-        return LT;
+    switch (pValue[0]) {
+        case '=':
+            pValue[0] = '0';
+            return EQ;
+        case '>':
+        case '+':
+            pValue[0] = '0';
+            return GT;
+        case '<':
+        case '-':
+            pValue[0] = '0';
+            return LT;
+        default:
+            return CT;
     }
-    return CT;
 }
 
 enum size_multiplier parseSizeSuffixArg(char *pValue) {
     int last = tolower(pValue[strlen(pValue) - 1]);
-    if (last == 'g') {
-        return GB;
-    } else if (last == 'm') {
-        return MB;
-    } else if (last == 'k') {
-        return KB;
+    switch (last) {
+        case 'g':
+            return GB;
+        case 'm':
+            return MB;
+        case 'k':
+            return KB;
+        default:
+            return B;
     }
-    return B;
 }
 
 void multiplySize(long *pSize, enum size_multiplier multiplier) {
