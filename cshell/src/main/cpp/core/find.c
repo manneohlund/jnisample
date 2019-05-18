@@ -25,29 +25,27 @@ int find(char *pPath) {
     DIR *pDirectory;
 
     if ((pDirectory = opendir(pPath)) == NULL) {
-        perror(pPath);
+        perror("test");
         return EXIT_FAILURE;
-    } else if (currentDepth == 1) {
-        printFind();
+    } else if (currentDepth == 1 && isWithinCurrentDepth()) {
+        statPath(pPath);
+        if (validateFind() == true) {
+            printFind();
+        }
     }
 
     while ((pDirent = readdir(pDirectory)) != NULL) {
         if (!is_option_set.depth && isWithinCurrentDepth()) {
-            if (!is_option_set.type || pDirent->d_type == option_values.type) {
-                if ((!IS_FOLDER_POINTER(pDirent->d_name) && option_values.pattern == NULL)
-                    || (!IS_FOLDER_POINTER(pDirent->d_name) && !regexec(&regex, pDirent->d_name, 0, NULL, 0))) {
 
-                    asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
-                    find_stat.fileType = pDirent->d_type;
-                    find_stat.fileName = pDirent->d_name;
-                    statPath(find_stat.pFullPath);
+            asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
+            find_stat.fileName = pDirent->d_name;
+            statPath(find_stat.pFullPath);
 
-                    printFind();
-                }
+            if (validateFind() == true) {
+                printFind();
             }
 
-            if (pDirent->d_type == DT_DIR && !IS_FOLDER_POINTER(pDirent->d_name)) {
-                //asprintf(&find_stat.pFullPath, "%s/%s", pPath, pDirent->d_name);
+            if (S_ISDIR(find_stat.fileStat.st_mode) && !IS_FOLDER_POINTER(find_stat.fileName)) {
                 find(find_stat.pFullPath);
             }
         }
@@ -59,34 +57,46 @@ int find(char *pPath) {
     return EXIT_SUCCESS;
 }
 
-void statPath(char *pPath) {
-    asprintf(&find_stat.pCurrentDir, "%s", pPath);
+bool validateFind() {
+    // Type
+    if (is_option_set.type && (find_stat.fileStat.st_mode & S_IFMT) != option_values.type)
+        return false;
 
-    if (pDirent->d_type == DT_LNK) {
-        bzero(find_stat.linkPath, sizeof(find_stat.linkPath));
-        readlink(find_stat.pFullPath, find_stat.linkPath, sizeof(find_stat.linkPath)-1);
-    }
+    // Pattern
+    if (is_option_set.pattern && regexec(&regex, find_stat.fileName, 0, NULL, 0))
+        return false;
+
+    // Size
+    long size = find_stat.fileStat.st_size;
+    if (is_option_set.size && !isSizeMatch(&size))
+        return false;
+
+    // User
+    if (is_option_set.user && find_stat.fileStat.st_uid != option_values.user)
+        return false;
+
+    // Group
+    if (is_option_set.group && find_stat.fileStat.st_gid != option_values.group)
+        return false;
+
+    return true;
+}
+
+void statPath(char *pPath) {
+    find_stat.pCurrentDir = dirname(pPath);
 
     if (lstat(find_stat.pFullPath, &find_stat.fileStat) == -1) {
         perror(find_stat.pFullPath);
         return;
     }
+
+    if (S_ISLNK(find_stat.fileStat.st_mode)) {
+        bzero(find_stat.linkPath, sizeof(find_stat.linkPath));
+        readlink(find_stat.pFullPath, find_stat.linkPath, sizeof(find_stat.linkPath)-1);
+    }
 }
 
 void printFind() {
-    // Size
-    long size = find_stat.fileStat.st_size;
-    if (is_option_set.size && !isSizeMatch(&size))
-        return;
-
-    // User
-    if (is_option_set.user && find_stat.fileStat.st_uid != option_values.user)
-        return;
-
-    // Group
-    if (is_option_set.group && find_stat.fileStat.st_gid != option_values.group)
-        return;
-
     if (is_option_set.stat_format) {
         printStatFormat();
     } else {
@@ -176,7 +186,7 @@ void printStatFormat() {
                         printf("%x", find_stat.fileStat.st_mode);                     // All mode bits (hex)
                         break;
                     case 'F':
-                        printf("%d", find_stat.fileType);                             // File type
+                        printf("%d", getFileType(find_stat.fileStat.st_mode & S_IFMT)); // File type
                         break;
                     case 'g':
                         printf("%u", find_stat.fileStat.st_gid);                      // Group id
@@ -189,7 +199,7 @@ void printStatFormat() {
                         break;
                     case 'n':
                         printf("%s", find_stat.fileName);                         // Filename
-                        if (find_stat.fileType == DT_LNK) {
+                        if (S_ISLNK(find_stat.fileStat.st_mode)) {
                             printf(" -> %s", find_stat.linkPath);
                         }
                         break;
@@ -411,23 +421,26 @@ int parseFileTypeArg(const char *pValue) {
     }
 }
 
-char parseFileType(int pValue) {
-    switch (pValue) {
-        case DT_DIR:
-            return 'd'; // S_IFDIR; // directory
-        case DT_LNK:
-            return 'l'; // S_IFLNK; // symlink
-        case DT_FIFO:
-            return 'p'; // S_IFIFO; // FIFO/pipe
-        case DT_BLK:
-            return 'b'; // S_IFBLK; // block device
-        case DT_CHR:
-            return 'c'; // S_IFCHR; // character device
-        case DT_SOCK:
-            return 's'; // S_IFSOCK; // socket
-        case DT_REG:
+int parseFileTypeArg2(const char *pValue) {
+    switch (pValue[0]) {
+        case 'f':
+            return S_IFREG; // regular file
+        case 'd':
+            return S_IFDIR; // directory
+        case 'l':
+            return S_IFLNK; // symlink
+        case 'p':
+            return S_IFIFO; // FIFO/pipe
+        case 'b':
+            return S_IFBLK; // block device
+        case 'c':
+            return S_IFCHR; // character device
+        case 's':
+            return S_IFSOCK; // socket
         default:
-            return '-'; // S_IFREG; // regular file
+            errno = EINVAL;
+            perror(&pValue[0]);
+            exit(EXIT_FAILURE);
     }
 }
 
@@ -521,7 +534,7 @@ int main(int argc, char *argv[]) {
 
             case 't':
                 is_option_set.type = true;
-                option_values.type = parseFileTypeArg(optarg);
+                option_values.type = parseFileTypeArg2(optarg);
                 break;
 
             case 'u':
@@ -633,12 +646,8 @@ int main(int argc, char *argv[]) {
     if (optind < argc) {
         while (optind < argc) {
             find_stat.pFullPath = argv[optind++];
-            if (lstat(find_stat.pFullPath, &find_stat.fileStat) == -1) {
-                perror(find_stat.pFullPath);
-                return EXIT_FAILURE;
-            }
+            statPath(find_stat.pFullPath);
             find_stat.fileName = basename(find_stat.pFullPath);
-            find_stat.pCurrentDir = dirname(find_stat.pFullPath);
             if (is_option_set.depth || !S_ISDIR(find_stat.fileStat.st_mode)) {
                 printFind();
             } else {

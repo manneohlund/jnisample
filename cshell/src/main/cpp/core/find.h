@@ -17,7 +17,6 @@ struct find_stat {
     char *pFullPath;
     char *pCurrentDir;
     char fileModes[12];
-    unsigned char fileType;
     char *fileName;
     struct stat fileStat;
     char linkPath[1024];
@@ -107,6 +106,8 @@ static struct option long_options[] = {
         {NULL, 0, NULL,                       0}
 };
 
+bool validateFind();
+
 void printFind();
 
 void statPath(char *pPath);
@@ -134,8 +135,6 @@ bool isWithinCurrentDepth();
 int parseNumericArg(char *pValue);
 
 int parseFileTypeArg(const char *pValue);
-
-char parseFileType(int pValue);
 
 enum size_type parseSizePrefixArg(char *pValue);
 
