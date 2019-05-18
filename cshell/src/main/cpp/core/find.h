@@ -83,27 +83,28 @@ enum {
 };
 
 static struct option long_options[] = {
-        {"icase",       no_argument,       0, 'i'},
-        {"depth",       no_argument,       0, 'd'},
-        {"pattern",     required_argument, 0, 'p'},
-        {"type",        required_argument, 0, 't'}, // -type [bcdflps] (block, char, dir, file, symlink, pipe, socket)
-        {"user",        required_argument, 0, 'u'}, // -user  UNAME    belongs to user UNAME
-        {"group",       required_argument, 0, 'g'}, // -group GROUP    belongs to group GROUP
-        {"user-name",   required_argument, 0, 'U'}, // -user  UNAME    belongs to user UNAME
-        {"group-name",  required_argument, 0, 'G'}, // -group GROUP    belongs to group GROUP
-        {"atime",       required_argument, 0, 'x'}, // -atime N[u]     accessed N units ago
-        {"ctime",       required_argument, 0, 'y'}, // -ctime N[u]     created/write N units ago
-        {"mtime",       required_argument, 0, 'z'}, // -mtime N[u]     modified N units ago
-        {"size",        required_argument, 0, 's'}, // -size  [=><]N[kmg]     512 byte blocks (c=bytes)
-        {"mindepth",    required_argument, 0, 'm'}, // -mindepth       # at least # dirs down
-        {"maxdepth",    required_argument, 0, 'M'}, // -maxdepth       # at most # dirs down
-        {"stat-format", required_argument, 0, 'f'},
-        {"date-format", required_argument, 0, 'F'},
-        {"options",     no_argument,       0, 'o'},
-        {"help",        no_argument,       0, HELP},
-        {"delete",      no_argument,       0, DELETE},
-        {"print0",      no_argument,       0, PRINT0},
-        {NULL, 0, NULL,                       0}
+        {"icase",        no_argument,       0, 'i'},
+        {"depth",        no_argument,       0, 'd'},
+        {"pattern",      required_argument, 0, 'p'},
+        {"type",         required_argument, 0, 't'}, // -type [bcdflps] (block, char, dir, file, symlink, pipe, socket)
+        {"user",         required_argument, 0, 'u'}, // -user  UNAME    belongs to user UNAME
+        {"group",        required_argument, 0, 'g'}, // -group GROUP    belongs to group GROUP
+        {"user-name",    required_argument, 0, 'U'}, // -user  UNAME    belongs to user UNAME
+        {"group-name",   required_argument, 0, 'G'}, // -group GROUP    belongs to group GROUP
+        {"atime",        required_argument, 0, 'x'}, // -atime N[u]     accessed N units ago
+        {"ctime",        required_argument, 0, 'y'}, // -ctime N[u]     created/write N units ago
+        {"mtime",        required_argument, 0, 'z'}, // -mtime N[u]     modified N units ago
+        {"size",         required_argument, 0, 's'}, // -size  [=><]N[kmg]     512 byte blocks (c=bytes)
+        {"mindepth",     required_argument, 0, 'm'}, // -mindepth       # at least # dirs down
+        {"maxdepth",     required_argument, 0, 'M'}, // -maxdepth       # at most # dirs down
+        {"stat-format",  required_argument, 0, 'f'},
+        {"stat-default", required_argument, 0, 'F'},
+        {"date-format",  required_argument, 0, 'D'},
+        {"options",      no_argument,       0, 'o'},
+        {"help",         no_argument,       0, HELP},
+        {"delete",       no_argument,       0, DELETE},
+        {"print0",       no_argument,       0, PRINT0},
+        {NULL, 0, NULL,                        0}
 };
 
 bool validateFind();

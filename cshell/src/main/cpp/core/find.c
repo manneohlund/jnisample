@@ -523,7 +523,7 @@ int main(int argc, char *argv[]) {
     int c;
     int option_index = 0;
 
-    while ((c = getopt_long(argc, argv, "oidp:t:u:g:U:G:x:y:z:s:m:M:f:F:", long_options, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "oidp:t:u:g:U:G:x:y:z:s:m:M:f:F:D:", long_options, &option_index)) != -1) {
         switch (c) {
             case 'o':
                 is_option_set.options = true;
@@ -592,6 +592,12 @@ int main(int argc, char *argv[]) {
                 break;
 
             case 'F':
+                is_option_set.stat_format = true;
+                option_values.stat_format = "%A %i %U %G %s %y %N";
+                validateStatFormat();
+                break;
+
+            case 'D':
                 is_option_set.date_format = true;
                 option_values.date_format = optarg;
                 validateDateFormat();
@@ -684,6 +690,8 @@ void printParams() {
     fprintf(stderr, "user = %d\n", is_option_set.user);
     fprintf(stderr, "group = %d\n", is_option_set.group);
     fprintf(stderr, "size = %d\n", is_option_set.size);
+    fprintf(stderr, "stat-format = %d\n", is_option_set.stat_format);
+    fprintf(stderr, "date-format = %d\n", is_option_set.date_format);
     fprintf(stderr, "mindepth = %d\n", is_option_set.mindepth);
     fprintf(stderr, "maxdepth = %d\n", is_option_set.maxdepth);
     fprintf(stderr, "delete = %d\n", is_option_set.delete);
@@ -700,6 +708,8 @@ void printParams() {
         fprintf(stderr, "size = %ld\n", size_values.size);
         fprintf(stderr, "size_multiplier = %d\n", size_values.size_multiplier);
     }
+    if (is_option_set.stat_format) fprintf(stderr, "stat_format = %s\n", option_values.stat_format);
+    if (is_option_set.date_format) fprintf(stderr, "date_format = %s\n", option_values.date_format);
     if (is_option_set.mindepth) fprintf(stderr, "mindepth = %d\n", option_values.mindepth);
     if (is_option_set.maxdepth) fprintf(stderr, "maxdepth = %d\n", option_values.maxdepth);
 }
