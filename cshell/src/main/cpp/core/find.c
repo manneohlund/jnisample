@@ -66,10 +66,6 @@ bool validateFind() {
     if (is_option_set.type && (find_stat.fileStat.st_mode & S_IFMT) != option_values.type)
         return false;
 
-    // Pattern
-    if (is_option_set.pattern && regexec(&regex, find_stat.fileName, 0, NULL, 0))
-        return false;
-
     // Size
     long size = find_stat.fileStat.st_size;
     if (is_option_set.size && !isSizeMatch(&size))
@@ -81,6 +77,10 @@ bool validateFind() {
 
     // Group
     if (is_option_set.group && find_stat.fileStat.st_gid != option_values.group)
+        return false;
+
+    // Pattern
+    if (is_option_set.pattern && regexec(&regex, find_stat.fileName, 0, NULL, 0))
         return false;
 
     return true;
