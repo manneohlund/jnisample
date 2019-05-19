@@ -741,7 +741,8 @@ Filters:\n\
 -y --ctime N                 Created N days ago\n\
 -z --mtime N                 Modified N days ago\n\
 -f --stat-format [FORMAT]    Output specified FORMAT string instead of default file stat\n\
--F --date-format [FORMAT]    Output specified FORMAT string instead of default file date\n\
+-F --stat-default            Output default '%A %i %U %G %s %y %N' file stat format\n\
+-D --date-format [FORMAT]    Output specified FORMAT string instead of default file date\n\
 \n\
 ", stdout);
         fputs("\
@@ -753,7 +754,8 @@ Actions:\n\
 ", stdout);
         fputs("\
 Display status of files or filesystems:\n\
--f --format [FORMAT]      Output specified FORMAT string instead of default file stat\n\
+-f --stat-format [FORMAT]      Output specified FORMAT string for file stat\n\
+-F --stat-default              Output default '%A %i %U %G %s %y %N' file stat format\n\
 \n\
 The valid format escape sequences for files:\n\
 %a  Access bits (octal) |%A  Access bits (flags)|%b  Size/512\n\
@@ -769,7 +771,7 @@ The valid format escape sequences for files:\n\
 ", stdout);
         fputs("\
 Date format:\n\
--F --date-format [FORMAT]     Output specified FORMAT string instead of default file date\n\
+-D --date-format [FORMAT]     Output specified FORMAT string instead of default file date\n\
 Default format is '%Y-%m-%d %X' (2019-05-02 14:35:00) \n\
 \n\
 %a\tAbbreviated weekday name             Sun\n\
