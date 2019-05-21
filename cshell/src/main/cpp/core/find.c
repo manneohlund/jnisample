@@ -457,11 +457,9 @@ enum size_type parseSizePrefixArg(char *pValue) {
         case '=':
             pValue[0] = '0';
             return EQ;
-        case '>':
         case '+':
             pValue[0] = '0';
             return GT;
-        case '<':
         case '-':
             pValue[0] = '0';
             return LT;
@@ -734,7 +732,7 @@ Filters:\n\
 -g --group [uid]             Belongs to user GID \n\
 -U --user-name [user-name]   Belongs to user UNAME \n\
 -G --group-name [group-name] Belongs to user UNAME \n\
--s --size [=><]N[kmg]        [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
+-s --size [=+-]N[kmg]        [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
 -m --mindepth N              At least N dirs down\n\
 -M --maxdepth N              At most N dirs down\n\
 -x --atime N                 Accessed N days ago\n\
