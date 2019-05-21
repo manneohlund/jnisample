@@ -98,7 +98,7 @@ static struct option long_options[] = {
         {"mindepth",     required_argument, 0, 'm'}, // -mindepth       # at least # dirs down
         {"maxdepth",     required_argument, 0, 'M'}, // -maxdepth       # at most # dirs down
         {"stat-format",  required_argument, 0, 'f'},
-        {"stat-default", required_argument, 0, 'F'},
+        {"stat-default", no_argument,       0, 'F'},
         {"date-format",  required_argument, 0, 'D'},
         {"options",      no_argument,       0, 'o'},
         {"help",         no_argument,       0, HELP},
