@@ -716,7 +716,7 @@ void usage(int status) {
     if (status != EXIT_SUCCESS)
         fprintf(stderr, "Try `%s --help' for more information.\n", "find");
     else {
-        printf("Usage: [-id] [ptugUGsmMxyzf] [--print0] [--delete] [--help] [path...]\n\n");
+        printf("Usage: [idptuUgGsmMxyzfFD] [--print0] [--delete] [--help] [path...]\n\n");
         fputs("\
 Search directories for matching files.\n\
 Default: search \".\" match all -print all matches.\n\
@@ -727,17 +727,17 @@ Filters:\n\
 -i --icase                   Case insensitive pattern\n\
 -d --depth                   Ignore content of dir\n\
 -p --pattern [PATTERN]       Regex patterns with wildcards\n\
--t --type [bcdflps]          (block, char, dir, file, symlink, pipe, socket)\n\
--u --user [uid]              Belongs to user UID \n\
--g --group [uid]             Belongs to user GID \n\
--U --user-name [user-name]   Belongs to user UNAME \n\
--G --group-name [group-name] Belongs to user UNAME \n\
--s --size [=+-]N[kmg]        [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
--m --mindepth N              At least N dirs down\n\
--M --maxdepth N              At most N dirs down\n\
--x --atime N                 Accessed N days ago\n\
--y --ctime N                 Created N days ago\n\
--z --mtime N                 Modified N days ago\n\
+-t --type [bcdflps]          File type (block, char, dir, file, symlink, pipe, socket)\n\
+-u --user [UID]              Belongs to user UID \n\
+-U --user-name [USER-NAME]   Belongs to user UNAME \n\
+-g --group [GID]             Belongs to user GID \n\
+-G --group-name [GROUP-NAME] Belongs to user UNAME \n\
+-s --size [=+-][N][kmg]      [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
+-m --mindepth [N]            At least N dirs down\n\
+-M --maxdepth [N]            At most N dirs down\n\
+-x --atime [N][smhdwmy]      Accessed N seconds, minutes, hours, days, weeks, months, years ago\n\
+-y --ctime [N][smhdwmy]      Created N seconds, minutes, hours, days, weeks, months, years ago\n\
+-z --mtime [N][smhdwmy]      Modified N seconds, minutes, hours, days, weeks, months, years ago\n\
 -f --stat-format [FORMAT]    Output specified FORMAT string instead of default file stat\n\
 -F --stat-default            Output default '%A %i %U %G %s %y %N' file stat format\n\
 -D --date-format [FORMAT]    Output specified FORMAT string instead of default file date\n\
@@ -805,7 +805,6 @@ MORE TBD:\n\
 -prune          ignore contents of dir\n\
 -xdev           only this filesystem\n\
 -newer FILE     newer mtime than FILE\n\
--depth          ignore contents of dir\n\
 -inum  N        inode number N \n\
 -empty          empty files and dirs\n\
 ", stdout);
