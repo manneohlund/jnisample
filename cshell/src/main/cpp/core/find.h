@@ -30,6 +30,10 @@ int regex_result;
 char buffer[100];
 struct tm *tm_info;
 
+// Date time
+time_t rawtime;
+struct tm *timeinfo;
+
 // Option checker
 struct option_check {
     bool case_insensitive;
@@ -43,6 +47,9 @@ struct option_check {
     bool maxdepth;
     bool stat_format;
     bool date_format;
+    bool atime;
+    bool ctime;
+    bool mtime;
     bool delete;
     bool print0;
     bool options;
@@ -62,6 +69,10 @@ struct option_values {
     char cwd[PATH_MAX]; // Current working dir
 } option_values;
 
+/* ***************************************
+ * Size
+ * ***************************************/
+
 enum size_type {
     EQ, GT, LT, CT
 };
@@ -76,12 +87,32 @@ struct size_struct {
     enum size_multiplier size_multiplier;
 } size_values;
 
+#define IS_SIZE_MATCH(operator, target, source) ((operator) == EQ ? (target) == (source) : (operator) == GT ? (target) >= (source) : (operator) == LT ? (target) >= (source) : (target) * 1.05 <= (source) && (target) * 0.95 >= (source))
+
+/* ***************************************
+ * Date
+ * ***************************************/
+enum time_multiplier {
+    SECONDS, MINUTES, HOURS, DAYS, WEEKS, MONTHS, YEARS
+};
+
+struct time_struct {
+    enum size_type operator;
+    long time;
+    enum time_multiplier multiplier;
+} time_values;
+
 enum {
     HELP = CHAR_MAX + 1,
     DELETE,
     PRINT0
 };
 
+#define IS_TIME_MATCH(operator, source, target) ((operator) == EQ ? (target) == (source) : (operator) == GT ? (target) <= (source) : (operator) == LT ? (target) >= (source) : ((target) + (60 * 60 * 24) >= (source) && (target) - (60 * 60 * 24) <= (source)))
+
+/* ***************************************
+ * Options
+ * ***************************************/
 static struct option long_options[] = {
         {"icase",        no_argument,       0, 'i'},
         {"depth",        no_argument,       0, 'd'},
@@ -107,6 +138,10 @@ static struct option long_options[] = {
         {NULL, 0, NULL,                        0}
 };
 
+/* ***************************************
+ * Functions
+ * ***************************************/
+
 bool validateFind();
 
 void printFind();
@@ -130,6 +165,10 @@ char *getGroupNameById(uid_t uid);
 char *getUserNameById(uid_t uid);
 
 bool isSizeMatch(long *pSize);
+
+void convetTimeToTargetEpoch(struct time_struct *targetTime);
+
+bool isTimeMatch(long *pSize, time_t i);
 
 bool isWithinCurrentDepth();
 

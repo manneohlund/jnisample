@@ -68,6 +68,7 @@ bool validateFind() {
 
     // Size
     long size = find_stat.fileStat.st_size;
+    //if (is_option_set.size && !IS_SIZE_MATCH(size_values.size_type, size_values.size, size))
     if (is_option_set.size && !isSizeMatch(&size))
         return false;
 
@@ -77,6 +78,19 @@ bool validateFind() {
 
     // Group
     if (is_option_set.group && find_stat.fileStat.st_gid != option_values.group)
+        return false;
+
+    // Time
+    //if (is_option_set.atime && !IS_TIME_MATCH(time_values.operator, time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
+    if (is_option_set.atime && !isTimeMatch(&time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
+        return false;
+
+    //if (is_option_set.ctime && !IS_TIME_MATCH(time_values.operator, time_values.time, get_stat_ctime(&find_stat.fileStat).tv_sec))
+    if (is_option_set.ctime && !isTimeMatch(&time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
+        return false;
+
+    //if (is_option_set.mtime && !IS_TIME_MATCH(time_values.operator, time_values.time, get_stat_mtime(&find_stat.fileStat).tv_sec))
+    if (is_option_set.mtime && !isTimeMatch(&time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
         return false;
 
     // Pattern
@@ -120,7 +134,23 @@ bool isSizeMatch(long *pSize) {
             return *pSize <= size_values.size;
         case CT:
         default:
-            return *pSize <= (long) (size_values.size * 1.15) && *pSize >= (long) (size_values.size * 0.95);
+            return *pSize <= (long) (size_values.size * 1.05) && *pSize >= (long) (size_values.size * 0.95);
+    }
+}
+
+bool isTimeMatch(long *pTargetTime, time_t targetFileTime) {
+    switch (time_values.operator) {
+        case EQ:
+            //divideSize(pSize, size_values.size_multiplier);
+            //multiplySize(pSize, size_values.size_multiplier);
+            return *pTargetTime == targetFileTime;
+        case GT:
+            return *pTargetTime >= targetFileTime;
+        case LT:
+            return *pTargetTime <= targetFileTime;
+        case CT:
+        default:
+            return *pTargetTime + (60 * 60 * 24) >= (targetFileTime) && *pTargetTime - (60 * 60 * 24) <= (targetFileTime);
     }
 }
 
@@ -383,7 +413,8 @@ uid_t getUserIdByName(const char *pName) {
 char *getGroupNameById(const uid_t uid) {
     struct group *grp = getgrgid(uid); /* don't free, see getgrnam() for details */
     if (grp == NULL) {
-        perror(uid);
+        fprintf(stderr, "%d", uid);
+        perror("");
         exit(EXIT_FAILURE);
     }
     return grp->gr_name;
@@ -392,7 +423,8 @@ char *getGroupNameById(const uid_t uid) {
 char *getUserNameById(const uid_t uid) {
     struct passwd *pwd = getpwuid(uid); /* don't free, see getpwnam() for details */
     if (pwd == NULL) {
-        perror(uid);
+        fprintf(stderr, "%d", uid);
+        perror("");
         exit(EXIT_FAILURE);
     }
     return pwd->pw_name;
@@ -503,6 +535,31 @@ void divideSize(long *pSize, enum size_multiplier multiplier) {
 }
 
 /****************************************************
+ *  DATE TIME
+ *****************************************************/
+
+enum time_multiplier parseTimeSuffixArg(char *pValue) {
+    int last = tolower(pValue[strlen(pValue) - 1]);
+    switch (last) {
+        case 's':
+            return SECONDS;
+        case 'm':
+            return MINUTES;
+        case 'h':
+            return HOURS;
+        case 'd':
+            return DAYS;
+        case 'w':
+            return WEEKS;
+        case 'M':
+            return MONTHS;
+        case 'y':
+        default:
+            return YEARS;
+    }
+}
+
+/****************************************************
  *  DEPTH
  *****************************************************/
 
@@ -601,6 +658,30 @@ int main(int argc, char *argv[]) {
                 validateDateFormat();
                 break;
 
+            case 'x':
+                is_option_set.atime = true;
+                time_values.operator = parseSizePrefixArg(optarg);
+                time_values.time = parseNumericArg(optarg);
+                time_values.multiplier = parseTimeSuffixArg(optarg);
+                convetTimeToTargetEpoch(&time_values);
+                break;
+
+            case 'y':
+                is_option_set.ctime = true;
+                time_values.operator = parseSizePrefixArg(optarg);
+                time_values.time = parseNumericArg(optarg);
+                time_values.multiplier = parseTimeSuffixArg(optarg);
+                convetTimeToTargetEpoch(&time_values);
+                break;
+
+            case 'z':
+                is_option_set.mtime = true;
+                time_values.operator = parseSizePrefixArg(optarg);
+                time_values.time = parseNumericArg(optarg);
+                time_values.multiplier = parseTimeSuffixArg(optarg);
+                convetTimeToTargetEpoch(&time_values);
+                break;
+
             case HELP:
                 usage(EXIT_SUCCESS);
 
@@ -680,6 +761,70 @@ int main(int argc, char *argv[]) {
     exit(result);
 }
 
+void convetTimeToTargetEpoch(struct time_struct *targetTime) {
+    // Get current time
+    time(&rawtime);
+    //rawtime = get_stat_mtime(&find_stat.fileStat).tv_sec;
+    timeinfo = localtime(&rawtime);
+    //fprintf(stderr, "[%d/%d/%d %d:%d:%d]\n",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+    time_t result;
+
+    // Current time minus target time
+    switch (targetTime->multiplier) {
+        case SECONDS:
+            result = mktime(timeinfo);
+            result -= targetTime->time;
+            break;
+        case MINUTES:
+            timeinfo->tm_sec = 0;
+            result = mktime(timeinfo);
+            result -= 60 * targetTime->time;
+            break;
+        case HOURS:
+            timeinfo->tm_min = 0;
+            timeinfo->tm_sec = 0;
+            result = mktime(timeinfo);
+            result -= 60 * 60 * targetTime->time;
+            break;
+        case DAYS:
+            timeinfo->tm_hour = 0;
+            timeinfo->tm_min = 0;
+            timeinfo->tm_sec = 0;
+            result = mktime(timeinfo);
+            result -= 60 * 60 * 24 * targetTime->time;
+            break;
+        case WEEKS:
+            timeinfo->tm_hour = 0;
+            timeinfo->tm_min = 0;
+            timeinfo->tm_sec = 0;
+            result = mktime(timeinfo);
+            result -= 60 * 60 * 24 * 7 * targetTime->time;
+            break;
+        case MONTHS:
+            timeinfo->tm_hour = 0;
+            timeinfo->tm_min = 0;
+            timeinfo->tm_sec = 0;
+            result = mktime(timeinfo);
+            result -= 60 * 60 * 24 * 7 * 4 * targetTime->time;
+            break;
+        case YEARS:
+            timeinfo->tm_year -= targetTime->time;
+            timeinfo->tm_hour = 0;
+            timeinfo->tm_min = 0;
+            timeinfo->tm_sec = 0;
+            result = mktime(timeinfo);
+        default:
+            break;
+    }
+
+    timeinfo = localtime(&result);
+    //fprintf(stderr, "[%d/%d/%d %d:%d:%d]\n",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+    // Convert to epoch
+    targetTime->time = mktime(timeinfo); // To epoch
+}
+
 void printParams() {
     fprintf(stderr, "Is Option set:\n");
     fprintf(stderr, "icase = %d\n", is_option_set.case_insensitive);
@@ -692,6 +837,9 @@ void printParams() {
     fprintf(stderr, "date-format = %d\n", is_option_set.date_format);
     fprintf(stderr, "mindepth = %d\n", is_option_set.mindepth);
     fprintf(stderr, "maxdepth = %d\n", is_option_set.maxdepth);
+    fprintf(stderr, "atime = %d\n", is_option_set.atime);
+    fprintf(stderr, "ctime = %d\n", is_option_set.ctime);
+    fprintf(stderr, "mtime = %d\n", is_option_set.mtime);
     fprintf(stderr, "delete = %d\n", is_option_set.delete);
     fprintf(stderr, "print0 = %d\n", is_option_set.print0);
 
@@ -710,6 +858,11 @@ void printParams() {
     if (is_option_set.date_format) fprintf(stderr, "date_format = %s\n", option_values.date_format);
     if (is_option_set.mindepth) fprintf(stderr, "mindepth = %d\n", option_values.mindepth);
     if (is_option_set.maxdepth) fprintf(stderr, "maxdepth = %d\n", option_values.maxdepth);
+    if (is_option_set.atime || is_option_set.ctime || is_option_set.mtime) {
+        fprintf(stderr, "acm_time type = %d\n", time_values.operator);
+        fprintf(stderr, "acm_time = %li\n", time_values.time);
+        fprintf(stderr, "acm_time multiplier= %d\n", time_values.multiplier);
+    }
 }
 
 void usage(int status) {
@@ -735,9 +888,9 @@ Filters:\n\
 -s --size [=+-][N][kmg]      [equals, bigger, smaller or around][N=size][k=KB, m=MB, g=GB multiplier]\n\
 -m --mindepth [N]            At least N dirs down\n\
 -M --maxdepth [N]            At most N dirs down\n\
--x --atime [N][smhdwmy]      Accessed N seconds, minutes, hours, days, weeks, months, years ago\n\
--y --ctime [N][smhdwmy]      Created N seconds, minutes, hours, days, weeks, months, years ago\n\
--z --mtime [N][smhdwmy]      Modified N seconds, minutes, hours, days, weeks, months, years ago\n\
+-x --atime [N][smhdwmy]      Accessed N sec, min, hours, days, weeks, months, years ago\n\
+-y --ctime [N][smhdwmy]      Created N sec, min, hours, days, weeks, months, years ago\n\
+-z --mtime [N][smhdwmy]      Modified N sec, min, hours, days, weeks, months, years ago\n\
 -f --stat-format [FORMAT]    Output specified FORMAT string instead of default file stat\n\
 -F --stat-default            Output default '%A %i %U %G %s %y %N' file stat format\n\
 -D --date-format [FORMAT]    Output specified FORMAT string instead of default file date\n\
