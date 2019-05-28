@@ -68,7 +68,6 @@ bool validateFind() {
 
     // Size
     long size = find_stat.fileStat.st_size;
-    //if (is_option_set.size && !IS_SIZE_MATCH(size_values.size_type, size_values.size, size))
     if (is_option_set.size && !isSizeMatch(&size))
         return false;
 
@@ -81,15 +80,12 @@ bool validateFind() {
         return false;
 
     // Time
-    //if (is_option_set.atime && !IS_TIME_MATCH(time_values.operator, time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
     if (is_option_set.atime && !isTimeMatch(&time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
         return false;
 
-    //if (is_option_set.ctime && !IS_TIME_MATCH(time_values.operator, time_values.time, get_stat_ctime(&find_stat.fileStat).tv_sec))
     if (is_option_set.ctime && !isTimeMatch(&time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
         return false;
 
-    //if (is_option_set.mtime && !IS_TIME_MATCH(time_values.operator, time_values.time, get_stat_mtime(&find_stat.fileStat).tv_sec))
     if (is_option_set.mtime && !isTimeMatch(&time_values.time, get_stat_atime(&find_stat.fileStat).tv_sec))
         return false;
 
@@ -141,8 +137,6 @@ bool isSizeMatch(long *pSize) {
 bool isTimeMatch(long *pTargetTime, time_t targetFileTime) {
     switch (time_values.operator) {
         case EQ:
-            //divideSize(pSize, size_values.size_multiplier);
-            //multiplySize(pSize, size_values.size_multiplier);
             return *pTargetTime == targetFileTime;
         case GT:
             return *pTargetTime >= targetFileTime;
@@ -764,10 +758,7 @@ int main(int argc, char *argv[]) {
 void convetTimeToTargetEpoch(struct time_struct *targetTime) {
     // Get current time
     time(&rawtime);
-    //rawtime = get_stat_mtime(&find_stat.fileStat).tv_sec;
     timeinfo = localtime(&rawtime);
-    //fprintf(stderr, "[%d/%d/%d %d:%d:%d]\n",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-
     time_t result;
 
     // Current time minus target time
@@ -819,7 +810,6 @@ void convetTimeToTargetEpoch(struct time_struct *targetTime) {
     }
 
     timeinfo = localtime(&result);
-    //fprintf(stderr, "[%d/%d/%d %d:%d:%d]\n",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
     // Convert to epoch
     targetTime->time = mktime(timeinfo); // To epoch
